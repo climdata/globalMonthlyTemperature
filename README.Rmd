@@ -1,0 +1,84 @@
+---
+title: "GISS Monthly Global Temperature"
+author: "Kmicha71"
+date: "19 8 2019"
+output:
+  html_document: 
+    keep_md: true
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## GISS Global Monthly Temperature
+
+https://data.giss.nasa.gov/gistemp/graphs_v4/#
+
+Download the temperature data from nasa
+https://data.giss.nasa.gov/gistemp/graphs_v4/graph_data/Monthly_Mean_Global_Surface_Temperature/graph.csv
+
+```{sh downloads}
+serverName="https://data.giss.nasa.gov/gistemp/graphs_v4/graph_data/Monthly_Mean_Global_Surface_Temperature" 
+fileName="graph.csv"
+
+file="giss_global_monthly.csv"
+url="$serverName/$fileName"
+echo "Download file: $file"
+[ -f ./download/$file ] && mv -f ./download/$file ./download/$file.bck
+wget -q -P download $url 
+## Remove first line !!
+#tail -n +2 ./download/$fileName > ./download/$file.tmp && mv ./download/$file.tmp ./download/$file
+cat ./download/$fileName > ./download/$file.tmp && mv ./download/$file.tmp ./download/$file
+rm -f ./download/$fileName
+
+```
+
+
+```{r convert}
+
+#Year+Month,Station,Land+Ocean,Land_Only,Open_Ocean
+
+temp <- read.csv("./download/giss_global_monthly.csv", sep=",", skip = 1)
+#temp <- temp[,c("Year","Land_Annual","Ocean_Annual")]
+
+
+names(temp)[names(temp) == "Year.Month"] <- "ts"
+names(temp)[names(temp) == "Land.Ocean"] <- "global"
+names(temp)[names(temp) == "Land_Only"] <- "land"
+names(temp)[names(temp) == "Open_Ocean"] <- "ocean"
+names(temp)[names(temp) == "Station"] <- "station"
+
+temp$year = as.integer(floor(temp$ts))
+temp$month = as.integer(round((temp$ts - temp$year)*12+0.5))
+temp$time <- paste(temp$year,temp$month, '15 00:00:00', sep='-')
+
+temp <- temp[order(temp$year, temp$month),]
+
+write.table(temp, file = "csv/monthly_temperature_global.csv", append = FALSE, quote = TRUE, sep = ",",
+            eol = "\n", na = "NA", dec = ".", row.names = FALSE,
+            col.names = TRUE, qmethod = "escape", fileEncoding = "UTF-8")
+```
+
+
+
+
+## Plot Temperature
+
+```{r plot, echo=TRUE}
+require("ggplot2")
+temp <- read.csv("./csv/monthly_temperature_global.csv", sep=",")
+
+mp <- ggplot() +
+      geom_line(aes(y=temp$ocean, x=temp$ts), color="blue") +
+      geom_line(aes(y=temp$global, x=temp$ts), color="cyan") +
+      geom_line(aes(y=temp$station, x=temp$ts), color="red") +
+      geom_line(aes(y=temp$land, x=temp$ts), color="brown") +  
+      xlab("Year") + ylab("Temperature ['C]")
+mp
+```
+
+
+
+
